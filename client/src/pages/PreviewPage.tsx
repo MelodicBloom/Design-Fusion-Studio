@@ -5,28 +5,59 @@ import { Lock, CheckCircle2, ChevronLeft, Copy } from "lucide-react";
 import { HYBRIDS } from "@/data/mockData";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useSessionId } from "@/hooks/useSessionId";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function PreviewPage() {
   const [, params] = useRoute("/preview/:id");
   const id = params?.id;
   const { toast } = useToast();
+  const sessionId = useSessionId();
+  const queryClient = useQueryClient();
   
   const hybrid = HYBRIDS.find(h => h.id === id);
-  const [unlocked, setUnlocked] = useState(false);
+
+  const { data: purchaseData } = useQuery({
+    queryKey: ["purchase", sessionId, id],
+    queryFn: async () => {
+      const res = await fetch(`/api/purchases/${sessionId}/${id}`);
+      return res.json();
+    },
+    enabled: !!id && !!sessionId,
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/purchases", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, layoutId: id }),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["purchase", sessionId, id] });
+      toast({ title: "Code unlocked!", description: "You now have full access to this layout code." });
+    },
+  });
+
+  const unlocked = purchaseData?.unlocked === true;
 
   if (!hybrid) {
     return <div className="p-12 text-center text-white">Preview not found.</div>;
   }
 
-  const mockCode = `
-import { motion } from "framer-motion";
+  const mockCode = `import { motion } from "framer-motion";
 
 export default function ${hybrid.name.replace(/\s+/g, '')}Layout() {
   return (
     <div className="relative min-h-screen bg-[${hybrid.styles[0].colors.primary}]">
       {/* Immersive Background */}
       <div className="absolute inset-0 z-0">
-        <img src="${hybrid.previewImg}" className="w-full h-full object-cover opacity-60 mix-blend-overlay" />
+        <img
+          src="/assets/hero-bg.jpg"
+          className="w-full h-full object-cover opacity-60 mix-blend-overlay"
+        />
       </div>
       
       {/* Interactive UI Layer */}
@@ -52,8 +83,7 @@ export default function ${hybrid.name.replace(/\s+/g, '')}Layout() {
       </main>
     </div>
   );
-}
-`.trim();
+}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(mockCode);
@@ -67,17 +97,15 @@ export default function ${hybrid.name.replace(/\s+/g, '')}Layout() {
     <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
       <div className="noise-overlay z-50"></div>
 
-      {/* Navigation Bar */}
       <nav className="fixed top-0 left-0 w-full p-6 z-50 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
         <Link href="/">
-          <a className="flex items-center gap-2 text-white/70 hover:text-white transition-colors glass-panel px-4 py-2 rounded-full text-sm font-medium">
+          <a className="flex items-center gap-2 text-white/70 hover:text-white transition-colors glass-panel px-4 py-2 rounded-full text-sm font-medium" data-testid="link-back">
             <ChevronLeft size={16} />
             Back to Gallery
           </a>
         </Link>
       </nav>
 
-      {/* Immersive Preview Area */}
       <section className="relative h-screen flex flex-col justify-end p-8 md:p-24">
         <div className="absolute inset-0 z-0">
           <img 
@@ -87,7 +115,6 @@ export default function ${hybrid.name.replace(/\s+/g, '')}Layout() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-black/10" />
           
-          {/* Abstract layout overlay representation */}
           <div className="absolute inset-0 p-24 hidden md:grid grid-cols-3 gap-8 opacity-40 mix-blend-overlay">
             <div className="col-span-2 bg-white/20 rounded-3xl border border-white/30 backdrop-blur-sm" />
             <div className="col-span-1 flex flex-col gap-8">
@@ -108,7 +135,7 @@ export default function ${hybrid.name.replace(/\s+/g, '')}Layout() {
               Interactive Preview
             </span>
           </div>
-          <h1 className="text-6xl md:text-8xl font-display font-bold text-white mb-6 drop-shadow-2xl">
+          <h1 className="text-6xl md:text-8xl font-display font-bold text-white mb-6 drop-shadow-2xl" data-testid="text-hybrid-name">
             {hybrid.name}
           </h1>
           <p className="text-xl md:text-2xl text-white/80 font-light max-w-2xl leading-relaxed">
@@ -127,7 +154,6 @@ export default function ${hybrid.name.replace(/\s+/g, '')}Layout() {
         </motion.div>
       </section>
 
-      {/* Code & Paywall Section */}
       <section className="relative z-20 bg-background min-h-screen p-8 md:p-24 flex flex-col items-center">
         <div className="w-full max-w-5xl">
           <div className="mb-12 text-center">
@@ -138,7 +164,6 @@ export default function ${hybrid.name.replace(/\s+/g, '')}Layout() {
           </div>
 
           <div className="relative rounded-2xl overflow-hidden glass-panel border border-white/10 bg-zinc-950/80 shadow-2xl">
-            {/* Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-white/10 bg-white/5">
               <div className="flex gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-500/80" />
@@ -147,21 +172,19 @@ export default function ${hybrid.name.replace(/\s+/g, '')}Layout() {
               </div>
               <span className="text-xs text-zinc-500 font-mono tracking-wider">{hybrid.name.replace(/\s+/g, '')}Layout.tsx</span>
               {unlocked ? (
-                <button onClick={handleCopy} className="text-zinc-400 hover:text-white transition-colors" title="Copy code">
+                <button onClick={handleCopy} className="text-zinc-400 hover:text-white transition-colors" title="Copy code" data-testid="button-copy">
                   <Copy size={16} />
                 </button>
               ) : (
-                <div className="w-4 h-4" /> // spacing
+                <div className="w-4 h-4" />
               )}
             </div>
 
-            {/* Code Content */}
             <div className="relative">
               <pre className={`p-6 text-sm font-mono text-zinc-300 overflow-x-auto ${!unlocked ? 'filter blur-[4px] opacity-50 select-none' : ''}`}>
                 <code>{mockCode}</code>
               </pre>
 
-              {/* Paywall Overlay */}
               {!unlocked && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-background via-background/80 to-transparent p-6 text-center">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-[0_0_30px_rgba(251,191,36,0.3)] mb-6">
@@ -174,12 +197,14 @@ export default function ${hybrid.name.replace(/\s+/g, '')}Layout() {
                   
                   <div className="flex flex-col gap-4 w-full max-w-sm">
                     <button 
-                      onClick={() => setUnlocked(true)}
-                      className="w-full py-4 rounded-xl bg-white text-black font-semibold tracking-wide hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
+                      onClick={() => unlockMutation.mutate()}
+                      disabled={unlockMutation.isPending}
+                      className="w-full py-4 rounded-xl bg-white text-black font-semibold tracking-wide hover:scale-[1.02] transition-transform flex items-center justify-center gap-2 disabled:opacity-50"
+                      data-testid="button-unlock"
                     >
-                      Unlock for $19
+                      {unlockMutation.isPending ? "Processing..." : "Unlock for $19"}
                     </button>
-                    <button className="w-full py-3 rounded-xl border border-white/10 text-white/70 font-medium hover:bg-white/5 transition-colors text-sm">
+                    <button className="w-full py-3 rounded-xl border border-white/10 text-white/70 font-medium hover:bg-white/5 transition-colors text-sm" data-testid="button-login">
                       I already have a Pro account
                     </button>
                   </div>
