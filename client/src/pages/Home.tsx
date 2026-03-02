@@ -4,9 +4,10 @@ import { STYLES, LAYOUTS, HYBRIDS } from "@/data/mockData";
 import StyleCard from "@/components/StyleCard";
 import LayoutCard from "@/components/LayoutCard";
 import HybridCard from "@/components/HybridCard";
+import InteractiveShowcase from "@/components/InteractiveShowcase";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<"styles" | "layouts" | "hybrids">("styles");
+  const [activeTab, setActiveTab] = useState<"styles" | "layouts" | "hybrids" | "components">("components");
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
@@ -29,14 +30,14 @@ export default function Home() {
           transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl font-light leading-relaxed"
         >
-          An exploration of visual language. Ten distinct styles, ten structural layouts, and three intricate hybrids inspired by the fusion of art and interface.
+          An exploration of visual language. Ten distinct styles, ten structural layouts, intricate hybrids, and hyper-tactile components.
         </motion.p>
       </header>
 
       {/* Navigation Tabs */}
       <nav className="flex justify-center mb-16 px-6">
         <div className="glass-panel p-1.5 rounded-full flex gap-2">
-          {(["styles", "layouts", "hybrids"] as const).map((tab) => (
+          {(["components", "styles", "layouts", "hybrids"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -61,6 +62,10 @@ export default function Home() {
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.5 }}
         >
+          {activeTab === "components" && (
+            <InteractiveShowcase />
+          )}
+
           {activeTab === "styles" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {STYLES.map((style, i) => (
